@@ -842,7 +842,7 @@ contract BEP20 is Context, IBEP20, Ownable {
 
 contract MetalClashToken is BEP20('PCORE Token', 'PCORE') {
     
-    uint256 public constant MAX_SUPPLY = 10000000000 *10**18;
+    uint256 public constant MAX_SUPPLY = 100000000000 *10**18;
     constructor()  {
         _mint(msg.sender,MAX_SUPPLY);
     }
