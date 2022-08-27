@@ -4,6 +4,8 @@
 // ERC721A Contracts v4.2.2
 // Creator: Chiru Labs
 
+import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
+
 pragma solidity ^0.8.4;
 
 /**
@@ -1682,10 +1684,7 @@ abstract contract Ownable is Context {
 }
 
 
-
-
-
-contract DADs is ERC721A, Ownable {
+contract DADs is ERC721A, Ownable, ReentrancyGuard {
     uint256 public constant MAX_SUPPLY = 8000;
 
     bytes32 public merkleRoot;
@@ -1693,8 +1692,14 @@ contract DADs is ERC721A, Ownable {
 
     bool public isMintEnabled;
 
+    // map of deposits per address
+    mapping(uint256 => address) private _deposits;
+    // map of start times per tokenID
+    mapping(uint256 => uint256) public stakeStartTimes;
+
     constructor() ERC721A("D.A.Ds", "D.A.Ds") {}
 
+    // --------- MINTING ---------
 
     function checkValidity(bytes32[] calldata _merkleProof,address user) public view returns (bool){
         bytes32 leaf = keccak256(abi.encodePacked(user));
@@ -1702,11 +1707,9 @@ contract DADs is ERC721A, Ownable {
         return true; 
     }
 
-
     function flipMintEnabled() public onlyOwner{
         isMintEnabled = !isMintEnabled;
     }
-
 
     function setMerkleRoot(bytes32 _root)  public onlyOwner{
         merkleRoot = _root;
@@ -1718,6 +1721,122 @@ contract DADs is ERC721A, Ownable {
         checkValidity(_merkleProof,msg.sender);
         mints[msg.sender] +=quantity;
         _mint(msg.sender, quantity);
-
     }
+
+    // --------- METADATA ------------------------------------------------------
+
+    // metadata URI
+    string private _baseTokenURI;
+
+    function _baseURI() internal view virtual override returns (string memory) {
+        return _baseTokenURI;
+    }
+
+    function setBaseURI(string calldata baseURI) external onlyOwner {
+        _baseTokenURI = baseURI;
+    }
+
+    // --------- STAKING ------------------------------------------------------
+
+    // this function stakes selected tokens
+    function depositDADs(uint256[] calldata tokenIds) external {
+        // allows this contract to send itself tokens from the user for THIS CONTRACT
+        setApprovalForAll(address(this), true);
+        // iterate over tokenIds given and send them to the contract
+        for (uint256 i; i < tokenIds.length; i++) {
+            
+            // add token into contract
+            this.safeTransferFrom(msg.sender, address(this), tokenIds[i], "");
+            
+            // add this token to user's deposits
+            _deposits[tokenIds[i]] = msg.sender;
+
+            // set the stake start time for this tokenID
+            stakeStartTimes[tokenIds[i]] = block.number;
+        }
+    }
+
+    // this function allows user to withdraw selected tokens
+    function withdrawDADs(uint256[] calldata tokenIds) external {
+        for (uint256 i; i < tokenIds.length; i++) {
+            require(
+                _deposits[tokenIds[i]] == msg.sender,
+                "Staking: token not deposited by user"
+            );
+
+            // send the token back
+            this.safeTransferFrom(address(this), msg.sender, tokenIds[i], "");
+
+            // remove deposits entry (set to null)
+            _deposits[tokenIds[i]] = address(0);
+
+        }
+    }
+
+    // this function gives you the owner of the staked token, useful for sending tokens
+    function ownerOfStaked(uint256 tokenId) external view returns (address) {
+        require(_exists(tokenId), "must query ownerOfStaked for an existing nft");
+        if (_deposits[tokenId] != address(0)) {
+            return _deposits[tokenId];
+        }
+        return address(0);
+    }
+
+    // this function gives you a list of all staked tokenIDs for given user
+    function depositsOf(address account, bool onlyStaked)
+        external
+        view
+        returns (uint256[] memory)
+    {
+        // allocate memory up to the total supply (max theoretical ownership)
+        uint256[] memory tokenIdsOwned = new uint256[](totalSupply());
+        
+        uint256 index = 0;
+        for (uint256 tokenid; tokenid <= totalSupply(); tokenid++) {
+            if (!_exists(tokenid)) {
+                continue;
+            }
+            // can request only staked tokens
+            if (onlyStaked) {
+                if (_deposits[tokenid] == account) {
+                    tokenIdsOwned[index] = tokenid;
+                    index++;
+                }
+            // can request both staked and owned tokens
+            } else {
+                if ((_deposits[tokenid] == account) || (ownerOf(tokenid) == account)) {
+                    tokenIdsOwned[index] = tokenid;
+                    index++;
+                }
+            }
+        }
+        // trim the results to be an array only up to index
+        uint256[] memory trimmedResult = new uint256[](index);
+        for (uint256 j = 0; j < trimmedResult.length; j++) {
+            trimmedResult[j] = tokenIdsOwned[j];
+        }
+
+        return trimmedResult;
+    }
+
+    // this function returns the time a particular token was staked
+    function getTimeStakedForToken (
+        uint256 tokenId
+    ) public view returns (uint256){
+        require(_exists(tokenId), "must be for an existing nft");
+
+        // if the token is staked (in blocks), return the time staked, otherwise 0
+        if (_deposits[tokenId] != address(0)) {
+            return block.number - stakeStartTimes[tokenId];
+        }
+        return 0;
+    }
+
+    // --------- OTHER ------------------------------------------------------
+
+    // this function allows you to withdraw eth from the contract, only owner can call
+    function withdrawMoney() external onlyOwner nonReentrant {
+        (bool success, ) = msg.sender.call{value: address(this).balance}("");
+        require(success, "Transfer failed.");
+     }
 }
