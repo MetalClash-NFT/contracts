@@ -1684,7 +1684,7 @@ abstract contract Ownable is Context {
 }
 
 
-contract DADs is ERC721A, Ownable, ReentrancyGuard {
+contract DADs is ERC721A, Ownable, ERC721A__IERC721Receiver, ReentrancyGuard {
     uint256 public constant MAX_SUPPLY = 8000;
 
     bytes32 public merkleRoot;
@@ -1750,6 +1750,16 @@ contract DADs is ERC721A, Ownable, ReentrancyGuard {
 
     // --------- STAKING ------------------------------------------------------
 
+    // override, nothing happening
+    function onERC721Received(
+        address operator,
+        address from,
+        uint256 tokenId,
+        bytes calldata data
+    ) external returns (bytes4) {
+        return ERC721A__IERC721Receiver.onERC721Received.selector;
+    }
+
     // this function stakes selected tokens
     function depositDADs(uint256[] calldata tokenIds) external {
         // allows this contract to send itself tokens from the user for this NFT
@@ -1780,6 +1790,9 @@ contract DADs is ERC721A, Ownable, ReentrancyGuard {
 
             // send the token back
             this.safeTransferFrom(address(this), msg.sender, tokenIds[i], "");
+
+            // reset stakedStartTimes for this tokenId
+            stakeStartTimes[tokenIds[i]] = 0;
 
             // remove deposits entry (set to null)
             _deposits[tokenIds[i]] = address(0);
@@ -1840,6 +1853,7 @@ contract DADs is ERC721A, Ownable, ReentrancyGuard {
         require(_exists(tokenId), "must be for an existing nft");
 
         // if the token is staked (in blocks), return the time staked, otherwise 0
+        // token must be staked, and start time will be set last time staked
         if (_deposits[tokenId] != address(0)) {
             return block.number - stakeStartTimes[tokenId];
         }

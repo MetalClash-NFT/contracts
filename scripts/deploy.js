@@ -65,7 +65,7 @@ const testDeploy = async (merkleTree) => {
     return nftContract.address
 
     // const nftContract = await nftContractFactory.attach(
-    //   "0x89bd920266080ae86ab25c123e23314121998227"
+    //   "0x183d04e51C6d048C9fb0B3CCf117DEE7727e9197"
     // );
 }
 
@@ -77,7 +77,7 @@ const testMint = async (merkleTree) => {
 
     const nftContractFactory = await hre.ethers.getContractFactory('DADs');
     const nftContract = await nftContractFactory.attach(
-      "0xF3d01De1ce6a254c51fa1b16f7dECfDCfadbAddA"
+      "0x183d04e51C6d048C9fb0B3CCf117DEE7727e9197"
     );
 
     // IS OWNER?
@@ -85,7 +85,8 @@ const testMint = async (merkleTree) => {
     console.log(await nftContract.owner());
 
     // SET MERKLE ROOT
-    // nftContract.setMerkleRoot(merkleTree.getRoot());
+    // txn = await nftContract.setMerkleRoot(merkleTree.getRoot());
+    // await txn.wait();
     // console.log("set merkle root");
 
     // TRY TO MINT PRESALE OFF
@@ -109,11 +110,11 @@ const testMint = async (merkleTree) => {
         var options = {value: hre.ethers.utils.parseEther("0.03")}
         const leaf = soliditySha3(myAddress);
         const proof = merkleTree.getHexProof(leaf);
-        txn = await nftContract.mint(proof, 2, options);
+        txn = await nftContract.mint(proof, 3, options);
         await txn.wait();
         console.log("WAS ABLE TO MINT, OVER AMOUNT");
     } catch (error) {
-        console.log(error);
+        // console.log(error);
         console.log("can't mint if over amount");
     }
 
@@ -150,7 +151,8 @@ const testMint = async (merkleTree) => {
       await txn.wait();
       console.log("minted 2 successfully");
     } catch (error) {
-        console.log("couldn't mint 2 but should have");
+        console.log(error)
+        console.log("ERROR: couldn't mint 2 but should have");
     }
 
     // TRY TO MINT, NOW TOO MANY
@@ -166,6 +168,7 @@ const testMint = async (merkleTree) => {
     }
 
     var tx = await nftContract.flipMintEnabled();
+    console.log("flip mint state to false");
     await tx.wait();
 
     txn = await nftContract.withdrawMoney(myAddress);
