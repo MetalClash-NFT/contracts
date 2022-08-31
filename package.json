@@ -1,8 +1,40 @@
 {
   "devDependencies": {
-    "erc721a": "^4.2.2"
+    "@nomiclabs/hardhat-ethers": "^2.1.1",
+    "@nomiclabs/hardhat-waffle": "^2.0.3",
+    "chai": "^4.3.6",
+    "erc721a": "^4.2.2",
+    "ethereum-waffle": "^3.4.4",
+    "ethers": "^5.7.0",
+    "hardhat": "^2.10.2",
+    "keccak256": "^1.0.6",
+    "web3-utils": "^1.7.5"
   },
   "dependencies": {
-    "@openzeppelin/contracts": "^4.7.3"
-  }
+    "@nomiclabs/hardhat-etherscan": "^3.0.1",
+    "@openzeppelin/contracts": "^4.7.3",
+    "merkletreejs": "^0.2.32",
+    "web3": "^1.7.5"
+  },
+  "name": "contracts",
+  "description": "This project demonstrates a basic Hardhat use case. It comes with a sample contract, a test for that contract, and a script that deploys that contract.",
+  "version": "1.0.0",
+  "main": "truffle-config.js",
+  "directories": {
+    "test": "test"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/MetalClash-NFT/contracts.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/MetalClash-NFT/contracts/issues"
+  },
+  "homepage": "https://github.com/MetalClash-NFT/contracts#readme"
 }

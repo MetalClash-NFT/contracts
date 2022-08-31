@@ -1690,7 +1690,11 @@ contract DADs is ERC721A, Ownable, ReentrancyGuard {
     bytes32 public merkleRoot;
     mapping(address => uint256) public mints;
 
-    bool public isMintEnabled;
+    uint256 maxMintAmountPlusOne = 3;
+    // TODO: update
+    uint256 public cost = .01 ether;
+
+    bool public isMintEnabled = false;
 
     // map of deposits per address
     mapping(uint256 => address) private _deposits;
@@ -1700,6 +1704,11 @@ contract DADs is ERC721A, Ownable, ReentrancyGuard {
     constructor() ERC721A("D.A.Ds", "D.A.Ds") {}
 
     // --------- MINTING ---------
+
+    modifier callerIsUser() {
+        require(tx.origin == msg.sender, "The caller is another contract");
+        _;
+    }
 
     function checkValidity(bytes32[] calldata _merkleProof,address user) public view returns (bool){
         bytes32 leaf = keccak256(abi.encodePacked(user));
@@ -1711,15 +1720,18 @@ contract DADs is ERC721A, Ownable, ReentrancyGuard {
         isMintEnabled = !isMintEnabled;
     }
 
-    function setMerkleRoot(bytes32 _root)  public onlyOwner{
+    function setMerkleRoot(bytes32 _root) public onlyOwner{
         merkleRoot = _root;
     }
 
-    function mint(bytes32[] calldata _merkleProof,uint256 quantity) external {
-        require(isMintEnabled,"Mint not enabled");
-        require(totalSupply()+quantity<= MAX_SUPPLY,"Max supply exceeds");
+    function mint(bytes32[] calldata _merkleProof,uint256 quantity) payable external callerIsUser {
+        require(isMintEnabled, "Mint not enabled");
+        require(totalSupply()+quantity<= MAX_SUPPLY, "Max supply exceeded");
+        require(balanceOf(msg.sender) + quantity < maxMintAmountPlusOne, "Attempting to mint too many DADs!");
+        require(!(msg.value < (cost * quantity)), "Not enough eth sent!");
+
         checkValidity(_merkleProof,msg.sender);
-        mints[msg.sender] +=quantity;
+        mints[msg.sender] += quantity;
         _mint(msg.sender, quantity);
     }
 
@@ -1740,10 +1752,12 @@ contract DADs is ERC721A, Ownable, ReentrancyGuard {
 
     // this function stakes selected tokens
     function depositDADs(uint256[] calldata tokenIds) external {
-        // allows this contract to send itself tokens from the user for THIS CONTRACT
+        // allows this contract to send itself tokens from the user for this NFT
         setApprovalForAll(address(this), true);
         // iterate over tokenIds given and send them to the contract
         for (uint256 i; i < tokenIds.length; i++) {
+
+            require((ownerOf(tokenIds[i]) == msg.sender), "caller does not own a token");
             
             // add token into contract
             this.safeTransferFrom(msg.sender, address(this), tokenIds[i], "");
@@ -1835,8 +1849,8 @@ contract DADs is ERC721A, Ownable, ReentrancyGuard {
     // --------- OTHER ------------------------------------------------------
 
     // this function allows you to withdraw eth from the contract, only owner can call
-    function withdrawMoney() external onlyOwner nonReentrant {
-        (bool success, ) = msg.sender.call{value: address(this).balance}("");
-        require(success, "Transfer failed.");
+    function withdrawMoney(address accountToWithdraw) external onlyOwner nonReentrant {
+        (bool success, ) = accountToWithdraw.call{value: address(this).balance}("");
+        require(success, "Withdrawal failed.");
      }
 }
